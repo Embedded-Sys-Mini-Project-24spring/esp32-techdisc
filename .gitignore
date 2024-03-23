@@ -51,4 +51,5 @@ Module.symvers
 Mkfile.old
 dkms.conf
 .pio
-sdkconfig.esp32-s2-saola-1
+.cache
+compile_commands.json
