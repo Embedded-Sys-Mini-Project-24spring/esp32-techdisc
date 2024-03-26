@@ -53,3 +53,5 @@ dkms.conf
 .pio
 .cache
 compile_commands.json
+build
+sdkconfig
