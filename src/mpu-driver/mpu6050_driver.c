@@ -7,7 +7,7 @@
 #define OFFSET_LOOP 200
 #define ACCEL_THRESHOLD .01
 #define GYRO_THRESHOLD 4
-#define GYRO_LSB_SENSITIVITY  0x83 // Pulled from MPU6050 datasheet (Fixed point representation)
+#define GYRO_LSB_SENSITIVITY  16.4 // Pulled from MPU6050 datasheet
 #define ACCEL_LSB_SENSITIVITY 16384 // Pulled from MPU6050 datasheet
 
 // Handle for the timer that is used to sample the IMU data
@@ -21,10 +21,10 @@ uint8_t imu_data[IMU_DATA_SIZE_BYTES];
 double accel_x_buffer[BUFFER_SAMPLES] = {};
 double accel_y_buffer[BUFFER_SAMPLES] ={};
 double accel_z_buffer[BUFFER_SAMPLES] = {};
-int16_t gyro_x_buffer[BUFFER_SAMPLES] = {};
-int16_t gyro_y_buffer[BUFFER_SAMPLES] = {};
-int16_t gyro_z_buffer[BUFFER_SAMPLES] = {};
-int16_t temp_data_buffer[BUFFER_SAMPLES] = {};
+double gyro_x_buffer[BUFFER_SAMPLES] = {};
+double gyro_y_buffer[BUFFER_SAMPLES] = {};
+double gyro_z_buffer[BUFFER_SAMPLES] = {};
+double temp_data_buffer[BUFFER_SAMPLES] = {};
 
 // Offset values to account for initial bias
 int16_t gyro_x_offset = 0;
@@ -37,16 +37,18 @@ double accel_x_output;
 double accel_y_output;
 double accel_z_output;
 
-int16_t accel_x_scale_factor = ACCEL_LSB_SENSITIVITY;
-int16_t accel_y_scale_factor = ACCEL_LSB_SENSITIVITY;
-int16_t accel_z_scale_factor;
+double accel_x_scale_factor = ACCEL_LSB_SENSITIVITY;
+double accel_y_scale_factor = ACCEL_LSB_SENSITIVITY;
+double accel_z_scale_factor;
 
 // Final output acceleration values that can be used in
 // calculations
-int16_t gyro_x_output;
-int16_t gyro_y_output;
-int16_t gyro_z_output;
-int16_t temp_data_output;
+double gyro_x_output;
+double gyro_y_output;
+double gyro_z_output;
+double temp_data_output;
+
+double rpm = 0;
 
 void timerCallback(void* arg);
 
@@ -54,7 +56,7 @@ static const uint8_t mpu6050_init_cmd[11][2] = {
     //{MPU6050_RA_PWR_MGMT_1, 0x80}, // PWR_MGMT_1, DEVICE_RESET  
     // need wait 
     {MPU6050_RA_PWR_MGMT_1, 0x00}, // cleat SLEEP
-    {MPU6050_RA_GYRO_CONFIG, 0x08}, // Gyroscope Full Scale Range = ± 500 °/s
+    {MPU6050_RA_GYRO_CONFIG, 0x18}, // Gyroscope Full Scale Range = ± 2000 °/s
     {MPU6050_RA_ACCEL_CONFIG, 0x00}, // Accelerometer Full Scale Range = ± 2g 
     {MPU6050_RA_INT_ENABLE, 0x00}, // Interrupt Enable.disenable 
     {MPU6050_RA_USER_CTRL, 0x00}, // User Control.auxiliary I2C are logically driven by the primary I2C bus
@@ -145,6 +147,10 @@ esp_err_t mpu6050_init()
 
     printf("Please hold IMU still while calibrating gyros...\n");
 
+    // Delay to give user time to orient imu and be steady
+    vTaskDelay(3000 / portTICK_PERIOD_MS);
+
+
     // Get a bunch of gyro samples and take the average whle holding everything stil in order find the
     // initial bias of the gyros
     for( unsigned int i = 0; i < OFFSET_LOOP && esp_err == ESP_OK; ++i )
@@ -206,7 +212,7 @@ esp_err_t mpu6050_init()
     // device. Since the difference betwen the two positions is 2g we can divide that by the distance between
     // the two read values to obtain that scalling factor. NOTE: I used difference/2 in this case to avoid a
     // decimal number. This value can be divided by our read values in the future to obtain the same result.
-    accel_z_scale_factor = (int16_t)((temp_accel_z_data_downwards-temp_accel_z_data_upwards)/2);
+    accel_z_scale_factor = (double)((int16_t)((temp_accel_z_data_downwards-temp_accel_z_data_upwards)/2));
 
     // Get rid of any negative sign
     accel_z_scale_factor = (accel_z_scale_factor < 0) ? (-1*accel_z_scale_factor) : accel_z_scale_factor;
@@ -266,37 +272,37 @@ void timerCallback(void* arg)
         temp_data_buffer[1] = temp_data_buffer[2];
         temp_data_buffer[2] = temp_data_buffer[3];
         temp_data_buffer[3] = temp_data_buffer[4];
-        temp_data_buffer[4] = (int16_t)((( (((int32_t)(imu_data[6]<<8 | imu_data[7])) << 5) / (340 << 5) ) + 0x491) >> 5); // Fixed point representation of the equation found in the MPU6050 datasheet. This value is in C not F.
+        temp_data_buffer[4] = ((double)((int16_t)(imu_data[6]<<8 | imu_data[7]))/340) + 36.53; //the equation found in the MPU6050 datasheet. This value is in C not F.
 
         // Shift the data down in the buffer
         gyro_x_buffer[0] = gyro_x_buffer[1];
         gyro_x_buffer[1] = gyro_x_buffer[2];
         gyro_x_buffer[2] = gyro_x_buffer[3];
         gyro_x_buffer[3] = gyro_x_buffer[4];
-        gyro_x_buffer[4] = (int16_t)(( (((int32_t)((int16_t)(imu_data[8]<<8 | imu_data[9]) - gyro_x_offset)) << 1) / GYRO_LSB_SENSITIVITY) >> 1);
+        gyro_x_buffer[4] = ((double)((int16_t)(imu_data[8]<<8 | imu_data[9]) - gyro_x_offset)) / GYRO_LSB_SENSITIVITY;
 
         // Shift the data down in the buffer
         gyro_y_buffer[0] = gyro_y_buffer[1];
         gyro_y_buffer[1] = gyro_y_buffer[2];
         gyro_y_buffer[2] = gyro_y_buffer[3];
         gyro_y_buffer[3] = gyro_y_buffer[4];
-        gyro_y_buffer[4] = (int16_t)(( (((int32_t)((int16_t)(imu_data[10]<<8 | imu_data[11]) - gyro_y_offset)) << 1) / GYRO_LSB_SENSITIVITY) >> 1);
+        gyro_y_buffer[4] = ((double)((int16_t)(imu_data[10]<<8 | imu_data[11]) - gyro_x_offset)) / GYRO_LSB_SENSITIVITY;
 
         // Shift the data down in the buffer
         gyro_z_buffer[0] = gyro_z_buffer[1];
         gyro_z_buffer[1] = gyro_z_buffer[2];
         gyro_z_buffer[2] = gyro_z_buffer[3];
         gyro_z_buffer[3] = gyro_z_buffer[4];
-        gyro_z_buffer[4] = (int16_t)(( (((int32_t)((int16_t)(imu_data[12]<<8 | imu_data[13]) - gyro_z_offset)) << 1) / GYRO_LSB_SENSITIVITY) >> 1);
+        gyro_z_buffer[4] = ((double)((int16_t)(imu_data[12]<<8 | imu_data[13]) - gyro_x_offset)) / GYRO_LSB_SENSITIVITY;
 
         // See if this takes too long
         FilterDataFloating(accel_x_buffer, BUFFER_SAMPLES, &accel_x_output);
         FilterDataFloating(accel_y_buffer, BUFFER_SAMPLES, &accel_y_output);
         FilterDataFloating(accel_z_buffer, BUFFER_SAMPLES, &accel_z_output);
-        FilterData(temp_data_buffer, BUFFER_SAMPLES, &temp_data_output);
-        FilterData(gyro_x_buffer, BUFFER_SAMPLES, &gyro_x_output);
-        FilterData(gyro_y_buffer, BUFFER_SAMPLES, &gyro_y_output);
-        FilterData(gyro_z_buffer, BUFFER_SAMPLES, &gyro_z_output);
+        FilterDataFloating(temp_data_buffer, BUFFER_SAMPLES, &temp_data_output);
+        FilterDataFloating(gyro_x_buffer, BUFFER_SAMPLES, &gyro_x_output);
+        FilterDataFloating(gyro_y_buffer, BUFFER_SAMPLES, &gyro_y_output);
+        FilterDataFloating(gyro_z_buffer, BUFFER_SAMPLES, &gyro_z_output);
 
         // Make sure the data is above a minimum threshold. This prevents tiny
         // movement from effecting our data
@@ -307,13 +313,18 @@ void timerCallback(void* arg)
         gyro_y_output = ((-1*GYRO_THRESHOLD) < gyro_y_output && gyro_y_output < GYRO_THRESHOLD) ? 0 : gyro_y_output;
         gyro_z_output = ((-1*GYRO_THRESHOLD) < gyro_z_output && gyro_z_output < GYRO_THRESHOLD) ? 0 : gyro_z_output;
 
+        // Calculate the instantaneous RPM
+        rpm = (gyro_z_output/6);
+        rpm = (gyro_z_output < 0) ? -1*rpm : rpm;
+
         printf("accel_x_output: %lf\n", accel_x_output);
         printf("accel_y_output: %lf\n", accel_y_output);
         printf("accel_z_output: %lf\n", accel_z_output);
-        printf("gyro_x_output: %d\n", gyro_x_output);
-        printf("gyro_y_output: %d\n", gyro_y_output);
-        printf("gyro_z_output: %d\n", gyro_z_output);
-        printf("temp_data_output: %d\n", temp_data_output);
+        printf("gyro_x_output: %lf\n", gyro_x_output);
+        printf("gyro_y_output: %lf\n", gyro_y_output);
+        printf("gyro_z_output: %lf\n", gyro_z_output);
+        printf("temp_data_output: %lf\n", temp_data_output);
+        printf("RPM: %lf\n", rpm);
 
     }
     else
