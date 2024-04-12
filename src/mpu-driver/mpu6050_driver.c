@@ -1,14 +1,20 @@
 #include "mpu6050_driver.h"
 #include "esp_timer.h"
 #include "filter/smoothing_filter.h"
+#include "semaphore.h"
+
+#define DEBUG // use undef to remove print statements
 
 #define IMU_DATA_SIZE_BYTES 14
 #define BUFFER_SAMPLES 5
 #define OFFSET_LOOP 200
 #define ACCEL_THRESHOLD .01
 #define GYRO_THRESHOLD 4
+#define GYRO_THRESHOLD_XY 8
 #define GYRO_LSB_SENSITIVITY  16.4 // Pulled from MPU6050 datasheet
 #define ACCEL_LSB_SENSITIVITY 16384 // Pulled from MPU6050 datasheet
+#define S_TO_MS 1000 // Conversion to MS
+#define NUM_DATA_TO_RETURN 6
 
 // Handle for the timer that is used to sample the IMU data
 esp_timer_handle_t i2cTimerHandle;
@@ -50,7 +56,12 @@ double temp_data_output;
 
 double rpm = 0;
 
-void timerCallback(void* arg);
+double currentAngleY = 0;
+double currentAngleX = 0;
+
+bool dataLock = false;
+
+void timerCallbackRawDataGathering(void* arg);
 
 static const uint8_t mpu6050_init_cmd[11][2] = {
     //{MPU6050_RA_PWR_MGMT_1, 0x80}, // PWR_MGMT_1, DEVICE_RESET  
@@ -99,9 +110,21 @@ static esp_err_t i2c_master_write_slave(i2c_port_t i2c_num, uint8_t *data_wr, si
     i2c_cmd_link_delete(cmd);
     return ret;
 }
+/**
+ * @brief Reset function to reset the angle of the x & y access
+*/
+void reset()
+{
+    while(dataLock == true)
+    {}
+    dataLock = true;
+    currentAngleY = 0;
+    currentAngleX = 0;
+    dataLock = false;
+}
 
 /**
-* @brief 初始化 mpu6050
+* @brief Initialize the mpu6050 and obtain starting offset and configuration values
 */
 esp_err_t mpu6050_init()
 {
@@ -221,8 +244,7 @@ esp_err_t mpu6050_init()
     esp_timer_create_args_t i2cTimerArgs;
     i2cTimerArgs.name = "I2C Data Collection Timer";
     i2cTimerArgs.dispatch_method = ESP_TIMER_TASK;
-    i2cTimerArgs.callback = timerCallback;
-
+    i2cTimerArgs.callback = timerCallbackRawDataGathering;
     esp_timer_create( &i2cTimerArgs, &i2cTimerHandle );
 
     // Should configure the timer to expire every 100ms
@@ -232,14 +254,36 @@ esp_err_t mpu6050_init()
 }
 
 /**
-* @brief 读取加速度计、温度和陀螺仪数据
+* @brief Returns the rpm, acceleration, and board x & y tilt in degrees
 */
-void mpu6050_get_value()
+bool mpu6050_get_value( double* data, uint8_t size )
 {
-    
+    bool retStatus = false;
+    if( size >= NUM_DATA_TO_RETURN )
+    {
+        uint8_t index = 0;
+        while(dataLock == true)
+        {}
+        dataLock = true;
+        data[index++] = accel_x_output;
+        data[index++] = accel_y_output;
+        data[index++] = accel_z_output;
+        data[index++] = currentAngleX;
+        data[index++] = currentAngleY;
+        data[index++] = temp_data_output;
+        dataLock = false;
+        retStatus = true;
+    }
+
+    return retStatus;
 }
 
-void timerCallback(void* arg)
+/**
+ * @brief Timer callback that will handle reading data from the mpu6050
+ * and then calculating usable data such as rpm and current x & y axis
+ * angle.
+*/
+void timerCallbackRawDataGathering(void* arg)
 {
     // Read the accelerations and gyro data from the IMU
     esp_err_t status = i2c_master_read_slave( MPU6050_I2C_PORT_NUM, MPU6050_RA_ACCEL_XOUT_H, imu_data, 14 );
@@ -286,14 +330,14 @@ void timerCallback(void* arg)
         gyro_y_buffer[1] = gyro_y_buffer[2];
         gyro_y_buffer[2] = gyro_y_buffer[3];
         gyro_y_buffer[3] = gyro_y_buffer[4];
-        gyro_y_buffer[4] = ((double)((int16_t)(imu_data[10]<<8 | imu_data[11]) - gyro_x_offset)) / GYRO_LSB_SENSITIVITY;
+        gyro_y_buffer[4] = ((double)((int16_t)(imu_data[10]<<8 | imu_data[11]) - gyro_y_offset)) / GYRO_LSB_SENSITIVITY;
 
         // Shift the data down in the buffer
         gyro_z_buffer[0] = gyro_z_buffer[1];
         gyro_z_buffer[1] = gyro_z_buffer[2];
         gyro_z_buffer[2] = gyro_z_buffer[3];
         gyro_z_buffer[3] = gyro_z_buffer[4];
-        gyro_z_buffer[4] = ((double)((int16_t)(imu_data[12]<<8 | imu_data[13]) - gyro_x_offset)) / GYRO_LSB_SENSITIVITY;
+        gyro_z_buffer[4] = ((double)((int16_t)(imu_data[12]<<8 | imu_data[13]) - gyro_z_offset)) / GYRO_LSB_SENSITIVITY;
 
         // See if this takes too long
         FilterDataFloating(accel_x_buffer, BUFFER_SAMPLES, &accel_x_output);
@@ -306,25 +350,56 @@ void timerCallback(void* arg)
 
         // Make sure the data is above a minimum threshold. This prevents tiny
         // movement from effecting our data
+        gyro_x_output = ((-1*GYRO_THRESHOLD_XY) < gyro_x_output && gyro_x_output < GYRO_THRESHOLD_XY) ? 0 : gyro_x_output;
+        gyro_y_output = ((-1*GYRO_THRESHOLD_XY) < gyro_y_output && gyro_y_output < GYRO_THRESHOLD_XY) ? 0 : gyro_y_output;
+        gyro_z_output = ((-1*GYRO_THRESHOLD) < gyro_z_output && gyro_z_output < GYRO_THRESHOLD) ? 0 : gyro_z_output;
+
+        // This data is output to to user so make sure we have the lock before doing anything
+        while(dataLock == true)
+        {}
+
+        dataLock = true; // Get the lock. In the future this should be a semaphore  
         accel_x_output = ((-1*ACCEL_THRESHOLD) < accel_x_output && accel_x_output < ACCEL_THRESHOLD) ? 0 : accel_x_output;
         accel_y_output = ((-1*ACCEL_THRESHOLD) < accel_y_output && accel_y_output < ACCEL_THRESHOLD) ? 0 : accel_y_output;
         accel_z_output = ((-1*ACCEL_THRESHOLD) < accel_z_output && accel_z_output < ACCEL_THRESHOLD) ? 0 : accel_z_output;
-        gyro_x_output = ((-1*GYRO_THRESHOLD) < gyro_x_output && gyro_x_output < GYRO_THRESHOLD) ? 0 : gyro_x_output;
-        gyro_y_output = ((-1*GYRO_THRESHOLD) < gyro_y_output && gyro_y_output < GYRO_THRESHOLD) ? 0 : gyro_y_output;
-        gyro_z_output = ((-1*GYRO_THRESHOLD) < gyro_z_output && gyro_z_output < GYRO_THRESHOLD) ? 0 : gyro_z_output;
-
+        
         // Calculate the instantaneous RPM
         rpm = (gyro_z_output/6);
-        rpm = (gyro_z_output < 0) ? -1*rpm : rpm;
+        rpm = (gyro_z_output < 0) ? -1*rpm : rpm; // We want rpm to be positive always
+        
+        // Calculate the current angle in the x and y direction
+        currentAngleY += (gyro_y_output/S_TO_MS)*100; // Convert seconds to ms and then multiple by the spacing between timer interrupts
+        currentAngleX += (gyro_x_output/S_TO_MS)*100; //
 
+        if( currentAngleY < -360 )
+        {
+            currentAngleY += 360; // readjust back to 0 if made a full rotation
+        }
+        else if( currentAngleY > 360 )
+        {
+            currentAngleY -= 360; // readjust back to 0 if made a full rotation
+        }
+
+        if( currentAngleX < -360 )
+        {
+            currentAngleX += 360; // readjust back to 0 if made a full rotation
+        }
+        else if( currentAngleX > 360 )
+        {
+            currentAngleX -= 360; // readjust back to 0 if made a full rotation
+        }
+        dataLock = false;
+
+
+        #ifdef DEBUG
         printf("accel_x_output: %lf\n", accel_x_output);
         printf("accel_y_output: %lf\n", accel_y_output);
         printf("accel_z_output: %lf\n", accel_z_output);
-        printf("gyro_x_output: %lf\n", gyro_x_output);
-        printf("gyro_y_output: %lf\n", gyro_y_output);
-        printf("gyro_z_output: %lf\n", gyro_z_output);
         printf("temp_data_output: %lf\n", temp_data_output);
+        printf("Angle Y degrees: %lf\n", currentAngleY);
+        printf("Angle X degrees: %lf\n", currentAngleX);
         printf("RPM: %lf\n", rpm);
+        #endif
 
     }
     else

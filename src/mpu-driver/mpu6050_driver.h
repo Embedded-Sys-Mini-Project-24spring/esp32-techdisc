@@ -429,4 +429,6 @@ esp_err_t mpu6050_init();
 /**
 * @brief 读取加速度计、温度和陀螺仪数据
 */
-void mpu6050_get_value();
+bool mpu6050_get_value(double* data, uint8_t size);
+
+void reset();
