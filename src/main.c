@@ -8,19 +8,29 @@ void doubleToAscii( double* data, uint8_t size );
 
 void app_main(void)
 {
-    gpio_config_t pushButtonPinConfigPin;
-    pushButtonPinConfigPin.pin_bit_mask = 1 << 8; // Enable pin 8
-    pushButtonPinConfigPin.mode = GPIO_MODE_OUTPUT;
-    pushButtonPinConfigPin.pull_up_en = GPIO_PULLUP_DISABLE;
-    pushButtonPinConfigPin.pull_down_en = GPIO_PULLDOWN_DISABLE;
-    pushButtonPinConfigPin.intr_type = GPIO_INTR_DISABLE;
+    gpio_config_t addrPinConfigPin;
+    addrPinConfigPin.pin_bit_mask = 1 << 8; // Enable pin 8
+    addrPinConfigPin.mode = GPIO_MODE_OUTPUT;
+    addrPinConfigPin.pull_up_en = GPIO_PULLUP_DISABLE;
+    addrPinConfigPin.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    addrPinConfigPin.intr_type = GPIO_INTR_DISABLE;
 
-    mpu6050_init();
+    esp_err_t error = gpio_config(&addrPinConfigPin);
 
-    while(1)
+    if(error == ESP_OK)
     {
-        // This delay could probably go away
-        vTaskDelay(100 / portTICK_PERIOD_MS);
+        error = gpio_set_level(GPIO_NUM_8, 0);
+        if(error == ESP_OK)
+        {
+            mpu6050_init();
+
+            while(1)
+            {
+                // This delay could probably go away
+                vTaskDelay(100 / portTICK_PERIOD_MS);
+            }
+        }
+        
     }
 }
 

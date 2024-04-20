@@ -2,6 +2,7 @@
 #include "esp_timer.h"
 #include "filter/smoothing_filter.h"
 #include "semaphore.h"
+#include "math.h"
 
 #define DEBUG // use undef to remove print statements
 
@@ -10,11 +11,12 @@
 #define OFFSET_LOOP 200
 #define ACCEL_THRESHOLD .01
 #define GYRO_THRESHOLD 4
-#define GYRO_THRESHOLD_XY 8
+#define GYRO_THRESHOLD_XY 4
 #define GYRO_LSB_SENSITIVITY  16.4 // Pulled from MPU6050 datasheet
 #define ACCEL_LSB_SENSITIVITY 16384 // Pulled from MPU6050 datasheet
 #define S_TO_MS 1000 // Conversion to MS
 #define NUM_DATA_TO_RETURN 6
+#define GAIN .85
 
 // Handle for the timer that is used to sample the IMU data
 esp_timer_handle_t i2cTimerHandle;
@@ -56,8 +58,12 @@ double temp_data_output;
 
 double rpm = 0;
 
-double currentAngleY = 0;
-double currentAngleX = 0;
+double currentAngleYGyro = 0;
+double currentAngleXGyro = 0;
+double currentAngleYAccel = 0;
+double currentAngleXAccel = 0;
+double finalAngleX = 0;
+double finalAngleY = 0;
 
 bool dataLock = false;
 
@@ -118,8 +124,8 @@ void reset()
     while(dataLock == true)
     {}
     dataLock = true;
-    currentAngleY = 0;
-    currentAngleX = 0;
+    currentAngleYGyro = 0;
+    currentAngleXGyro = 0;
     dataLock = false;
 }
 
@@ -240,6 +246,11 @@ esp_err_t mpu6050_init()
     // Get rid of any negative sign
     accel_z_scale_factor = (accel_z_scale_factor < 0) ? (-1*accel_z_scale_factor) : accel_z_scale_factor;
 
+    printf("Return to upright position.\n");
+
+    // Delay to give user time to orient imu and be steady
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
+
     printf("Configuring timer for periodic measurements.\n");
     esp_timer_create_args_t i2cTimerArgs;
     i2cTimerArgs.name = "I2C Data Collection Timer";
@@ -268,8 +279,8 @@ bool mpu6050_get_value( double* data, uint8_t size )
         data[index++] = accel_x_output;
         data[index++] = accel_y_output;
         data[index++] = accel_z_output;
-        data[index++] = currentAngleX;
-        data[index++] = currentAngleY;
+        data[index++] = currentAngleXGyro;
+        data[index++] = currentAngleYGyro;
         data[index++] = temp_data_output;
         dataLock = false;
         retStatus = true;
@@ -368,36 +379,55 @@ void timerCallbackRawDataGathering(void* arg)
         rpm = (gyro_z_output < 0) ? -1*rpm : rpm; // We want rpm to be positive always
         
         // Calculate the current angle in the x and y direction
-        currentAngleY += (gyro_y_output/S_TO_MS)*100; // Convert seconds to ms and then multiple by the spacing between timer interrupts
-        currentAngleX += (gyro_x_output/S_TO_MS)*100; //
+        currentAngleYGyro += (gyro_y_output/S_TO_MS)*100; // Convert seconds to ms and then multiple by the spacing between timer interrupts
+        currentAngleXGyro += (gyro_x_output/S_TO_MS)*100; //
 
-        if( currentAngleY < -360 )
+        if( currentAngleYGyro < -360 )
         {
-            currentAngleY += 360; // readjust back to 0 if made a full rotation
+            currentAngleYGyro += 360; // readjust back to 0 if made a full rotation
         }
-        else if( currentAngleY > 360 )
+        else if( currentAngleYGyro > 360 )
         {
-            currentAngleY -= 360; // readjust back to 0 if made a full rotation
+            currentAngleYGyro -= 360; // readjust back to 0 if made a full rotation
         }
 
-        if( currentAngleX < -360 )
+        if( currentAngleXGyro < -360 )
         {
-            currentAngleX += 360; // readjust back to 0 if made a full rotation
+            currentAngleXGyro += 360; // readjust back to 0 if made a full rotation
         }
-        else if( currentAngleX > 360 )
+        else if( currentAngleXGyro > 360 )
         {
-            currentAngleX -= 360; // readjust back to 0 if made a full rotation
+            currentAngleXGyro -= 360; // readjust back to 0 if made a full rotation
         }
+        
+        // Calculate the angle based on the accel data
+        currentAngleYAccel = atan(accel_x_output/sqrt(pow(accel_y_output,2)+pow(accel_z_output,2)))*(180/3.141592653589793238462643383);
+        currentAngleXAccel = atan(accel_y_output/sqrt(pow(accel_x_output,2)+pow(accel_z_output,2)))*(180/3.141592653589793238462643383);
+
+        // Reset the integration so that we don't keep accumulating error
+        if(currentAngleXAccel > -.01 && currentAngleXAccel < .01)
+        {
+            currentAngleXGyro = 0;
+        }
+
+        if(currentAngleYAccel > -.01 && currentAngleYAccel < .01)
+        {
+            currentAngleYGyro = 0;
+        }
+
+        // Apply the complementary filter
+        finalAngleX = GAIN*currentAngleXGyro + (1-GAIN)*currentAngleXAccel;
+        finalAngleY = GAIN*currentAngleYGyro + (1-GAIN)*currentAngleYAccel;
         dataLock = false;
 
 
         #ifdef DEBUG
-        printf("accel_x_output: %lf\n", accel_x_output);
-        printf("accel_y_output: %lf\n", accel_y_output);
-        printf("accel_z_output: %lf\n", accel_z_output);
-        printf("temp_data_output: %lf\n", temp_data_output);
-        printf("Angle Y degrees: %lf\n", currentAngleY);
-        printf("Angle X degrees: %lf\n", currentAngleX);
+        printf("accel_x_degree: %lf\n", currentAngleXAccel);
+        printf("accel_y_degree: %lf\n", currentAngleYAccel);
+        printf("Gyro angle x: %lf\n", currentAngleXGyro);
+        printf("Gyro angle y: %lf\n", currentAngleYGyro);
+        printf("Angle X degrees: %lf\n", finalAngleX);
+        printf("Angle Y degrees: %lf\n", finalAngleY);
         printf("RPM: %lf\n", rpm);
         #endif
 
