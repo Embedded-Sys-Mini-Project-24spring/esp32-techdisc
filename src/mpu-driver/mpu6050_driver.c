@@ -267,7 +267,7 @@ esp_err_t mpu6050_init()
 /**
 * @brief Returns the rpm, acceleration, and board x & y tilt in degrees
 */
-bool mpu6050_get_value( double* data, uint8_t size )
+bool mpu6050_get_value_double( double* data, uint8_t size )
 {
     bool retStatus = false;
     if( size >= NUM_DATA_TO_RETURN )
@@ -282,6 +282,31 @@ bool mpu6050_get_value( double* data, uint8_t size )
         data[index++] = currentAngleXGyro;
         data[index++] = currentAngleYGyro;
         data[index++] = temp_data_output;
+        dataLock = false;
+        retStatus = true;
+    }
+
+    return retStatus;
+}
+
+/**
+* @brief Returns the rpm, acceleration, and board x & y tilt in degrees
+*/
+bool mpu6050_get_value_int( int32_t* data, uint8_t size )
+{
+    bool retStatus = false;
+    if( size >= NUM_DATA_TO_RETURN )
+    {
+        uint8_t index = 0;
+        while(dataLock == true)
+        {}
+        dataLock = true;
+        data[index++] = (int32_t)accel_x_output;
+        data[index++] = (int32_t)accel_y_output;
+        data[index++] = (int32_t)accel_z_output;
+        data[index++] = (int32_t)currentAngleXGyro;
+        data[index++] = (int32_t)currentAngleYGyro;
+        data[index++] = (int32_t)temp_data_output;
         dataLock = false;
         retStatus = true;
     }
