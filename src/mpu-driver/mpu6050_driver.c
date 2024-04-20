@@ -279,9 +279,10 @@ bool mpu6050_get_value_double( double* data, uint8_t size )
         data[index++] = accel_x_output;
         data[index++] = accel_y_output;
         data[index++] = accel_z_output;
-        data[index++] = currentAngleXGyro;
-        data[index++] = currentAngleYGyro;
+        data[index++] = finalAngleX;
+        data[index++] = finalAngleY;
         data[index++] = temp_data_output;
+        data[index++] = rpm;
         dataLock = false;
         retStatus = true;
     }
@@ -304,9 +305,10 @@ bool mpu6050_get_value_int( int32_t* data, uint8_t size )
         data[index++] = (int32_t)accel_x_output;
         data[index++] = (int32_t)accel_y_output;
         data[index++] = (int32_t)accel_z_output;
-        data[index++] = (int32_t)currentAngleXGyro;
-        data[index++] = (int32_t)currentAngleYGyro;
+        data[index++] = (int32_t)finalAngleX;
+        data[index++] = (int32_t)finalAngleY;
         data[index++] = (int32_t)temp_data_output;
+        data[index++] = (int32_t)rpm;
         dataLock = false;
         retStatus = true;
     }
@@ -451,8 +453,8 @@ void timerCallbackRawDataGathering(void* arg)
         printf("accel_y_degree: %lf\n", currentAngleYAccel);
         printf("Gyro angle x: %lf\n", currentAngleXGyro);
         printf("Gyro angle y: %lf\n", currentAngleYGyro);
-        printf("Angle X degrees: %lf\n", finalAngleX);
-        printf("Angle Y degrees: %lf\n", finalAngleY);
+        printf("Final angle X degrees: %lf\n", finalAngleX);
+        printf("Final angle Y degrees: %lf\n", finalAngleY);
         printf("RPM: %lf\n", rpm);
         #endif
 
