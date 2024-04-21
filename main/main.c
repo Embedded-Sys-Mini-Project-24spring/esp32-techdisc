@@ -4,8 +4,15 @@
 #include "filter/smoothing_filter.h"
 #include "wifi-ws-server/wifi_ap_webserver.h"
 #include "driver/gpio.h"
+#include "esp_timer.h"
 
-void doubleToAscii( double* data, uint8_t size );
+static uint16_t dataStringSize = 256;
+char dataString[256];
+
+// Handle for the timer that is used to send data to the client app
+esp_timer_handle_t clientAppSenderTimerHandle;
+
+void timerCallbackAppDataGathering(void* arg);
 
 void app_main(void)
 {
@@ -18,6 +25,13 @@ void app_main(void)
 
     esp_err_t error = gpio_config(&addrPinConfigPin);
 
+    printf("Configuring client app timer for periodic measurements.\n");
+    esp_timer_create_args_t clientAppSenderTimerArgs;
+    clientAppSenderTimerArgs.name = "Client app data sender";
+    clientAppSenderTimerArgs.dispatch_method = ESP_TIMER_TASK;
+    clientAppSenderTimerArgs.callback = timerCallbackAppDataGathering;
+    esp_timer_create( &clientAppSenderTimerArgs, &clientAppSenderTimerHandle );
+
     if(error == ESP_OK)
     {
         error = gpio_set_level(GPIO_NUM_8, 0);
@@ -25,6 +39,9 @@ void app_main(void)
         {
             wifi_server_init();
             mpu6050_init();
+            
+            // Should configure the timer to expire every 150ms
+            esp_timer_start_periodic( clientAppSenderTimerHandle, 150000 );
 
             while(1)
             {
@@ -36,7 +53,9 @@ void app_main(void)
     }
 }
 
-void doubleToAscii(double* data, uint8_t size)
+void timerCallbackAppDataGathering(void* arg)
 {
-    
+    (void)mpu6050_get_value_string( dataString ,dataStringSize );
+
+    (void)queue_send(dataString);
 }

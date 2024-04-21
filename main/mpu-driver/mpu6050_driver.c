@@ -3,8 +3,9 @@
 #include "filter/smoothing_filter.h"
 #include "semaphore.h"
 #include "math.h"
+#include <stdio.h>
 
-#define DEBUG // use undef to remove print statements
+#undef DEBUG // use undef to remove print statements
 
 #define IMU_DATA_SIZE_BYTES 14
 #define BUFFER_SAMPLES 5
@@ -15,7 +16,7 @@
 #define GYRO_LSB_SENSITIVITY  16.4 // Pulled from MPU6050 datasheet
 #define ACCEL_LSB_SENSITIVITY 16384 // Pulled from MPU6050 datasheet
 #define S_TO_MS 1000 // Conversion to MS
-#define NUM_DATA_TO_RETURN 6
+#define NUM_DATA_TO_RETURN 7
 #define GAIN .85
 
 // Handle for the timer that is used to sample the IMU data
@@ -312,6 +313,33 @@ bool mpu6050_get_value_int( int32_t* data, uint8_t size )
         dataLock = false;
         retStatus = true;
     }
+
+    return retStatus;
+}
+
+/**
+* @brief Returns the rpm, acceleration, and board x & y tilt in degrees
+*/
+bool mpu6050_get_value_string(char* data, uint16_t size)
+{
+    bool retStatus = false;
+    while(dataLock == true)
+    {};
+
+    dataLock = true;
+
+    snprintf( data, 
+              size,
+              "Accel x: %lf, Accel y: %lf, Accel z: %lf, Angle x: %lf, Angle y: %lf, rpm: %lf\n",
+              accel_x_output,
+              accel_y_output,
+              accel_z_output,
+              finalAngleX,
+              finalAngleY,
+              rpm );
+
+    dataLock = false;
+    retStatus = true;
 
     return retStatus;
 }

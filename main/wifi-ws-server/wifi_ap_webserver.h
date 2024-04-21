@@ -48,7 +48,7 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
 
 esp_err_t wifi_init_softap(void);
 
-static esp_err_t queue_send(char* data_str);
+esp_err_t queue_send(char* data_str);
 
 static void send_data_to_all();
 

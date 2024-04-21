@@ -427,7 +427,7 @@ typedef struct measurement_out_tag
 esp_err_t mpu6050_init();
 
 /**
-* @brief 读取加速度计、温度和陀螺仪数据
+* @brief Double version of the get version.
 */
 bool mpu6050_get_value_double(double* data, uint8_t size);
 
@@ -436,5 +436,10 @@ bool mpu6050_get_value_double(double* data, uint8_t size);
 *        across socket.
 */
 bool mpu6050_get_value_int(int32_t* data, uint8_t size);
+
+/**
+* @brief String version of the get version.
+*/
+bool mpu6050_get_value_string(char* data, uint16_t size);
 
 void reset();

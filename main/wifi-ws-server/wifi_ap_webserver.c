@@ -32,7 +32,7 @@ static httpd_handle_t server = NULL;
 
 
 
-static esp_err_t queue_send(char* data_str)
+esp_err_t queue_send(char* data_str)
 {
 
     esp_err_t ret = httpd_queue_work(server, send_data_to_all, data_str);
