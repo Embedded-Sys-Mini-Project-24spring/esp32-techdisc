@@ -9,23 +9,7 @@
    CONDITIONS OF ANY KIND, either express or implied.
 */
 
-#include <esp_wifi.h>
-#include <esp_event.h>
-#include <esp_log.h>
-#include <esp_system.h>
-#include <nvs_flash.h>
-#include <sys/param.h>
-#include "nvs_flash.h"
-#include "esp_netif.h"
-#include "esp_mac.h"
-#include <esp_http_server.h>
-#include <string.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_system.h"
-#include "lwip/err.h"
-#include "lwip/sys.h"
-#include "esp_wifi_types.h"
+#include "wifi_ap_webserver.h"
 
 /* The examples use WiFi configuration that you can set via project configuration menu.
 
@@ -58,8 +42,9 @@ struct async_resp_arg {
     int fd;              // session socket file descriptor
 };
 
+
 // The asynchronous response
-static void generate_async_hello_resp(void *arg)
+void generate_async_hello_resp(void *arg)
 {
     // Data format to be sent from the server as a response to the client
     char http_string[250];
@@ -80,7 +65,7 @@ static void generate_async_hello_resp(void *arg)
 }
 
 // Initialize a queue for asynchronous communication
-static esp_err_t async_get_handler(httpd_req_t *req)
+esp_err_t async_get_handler(httpd_req_t *req)
 {
     struct async_resp_arg *resp_arg = malloc(sizeof(struct async_resp_arg));
     resp_arg->hd = req->handle;
@@ -93,7 +78,7 @@ static esp_err_t async_get_handler(httpd_req_t *req)
 /*
  * async send function, which we put into the httpd work queue
  */
-static void ws_async_send(void *arg)
+void ws_async_send(void *arg)
 {
     static const char * data = "Async data";
     struct async_resp_arg *resp_arg = arg;
@@ -109,7 +94,7 @@ static void ws_async_send(void *arg)
     free(resp_arg);
 }
 
-static esp_err_t trigger_async_send(httpd_handle_t handle, httpd_req_t *req)
+esp_err_t trigger_async_send(httpd_handle_t handle, httpd_req_t *req)
 {
     struct async_resp_arg *resp_arg = malloc(sizeof(struct async_resp_arg));
     if (resp_arg == NULL) {
@@ -124,11 +109,13 @@ static esp_err_t trigger_async_send(httpd_handle_t handle, httpd_req_t *req)
     return ret;
 }
 
+
+
 /*
  * This handler echos back the received ws data
  * and triggers an async send if certain message received
  */
-static esp_err_t echo_handler(httpd_req_t *req)
+esp_err_t echo_handler(httpd_req_t *req)
 {
     if (req->method == HTTP_GET) {
         ESP_LOGI(TAG, "Handshake done, the new connection was opened");
@@ -178,7 +165,7 @@ static esp_err_t echo_handler(httpd_req_t *req)
     return ret;
 }
 
-static const httpd_uri_t ws = {
+const httpd_uri_t ws = {
         .uri        = "/ws",
         .method     = HTTP_GET,
         .handler    = echo_handler,
@@ -187,7 +174,16 @@ static const httpd_uri_t ws = {
 };
 
 
-static httpd_handle_t start_webserver(void)
+// const httpd_uri_t ws = {
+//         .uri        = "/ws",
+//         .method     = HTTP_GET,
+//         .handler    = echo_handler,
+//         .user_ctx   = NULL,
+//         .is_websocket = true
+// };
+
+
+httpd_handle_t start_webserver(void)
 {
     httpd_handle_t server = NULL;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
@@ -206,14 +202,14 @@ static httpd_handle_t start_webserver(void)
     return NULL;
 }
 
-static esp_err_t stop_webserver(httpd_handle_t server)
+esp_err_t stop_webserver(httpd_handle_t server)
 {
     // Stop the httpd server
     return httpd_stop(server);
 }
 
 
-static void disconnect_handler(void* arg, esp_event_base_t event_base,
+void disconnect_handler(void* arg, esp_event_base_t event_base,
                                int32_t event_id, void* event_data)
 {
     httpd_handle_t* server = (httpd_handle_t*) arg;
@@ -228,7 +224,7 @@ static void disconnect_handler(void* arg, esp_event_base_t event_base,
 }
 
 
-static void connect_handler(void* arg, esp_event_base_t event_base,
+void connect_handler(void* arg, esp_event_base_t event_base,
                             int32_t event_id, void* event_data)
 {
     httpd_handle_t* server = (httpd_handle_t*) arg;
@@ -240,7 +236,7 @@ static void connect_handler(void* arg, esp_event_base_t event_base,
 
 //------------------------------------------------------------------------------
 
-static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
+void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
     if (event_id == WIFI_EVENT_AP_STACONNECTED) {
         wifi_event_ap_staconnected_t* event = (wifi_event_ap_staconnected_t*) event_data;
@@ -284,15 +280,9 @@ esp_err_t wifi_init_softap(void)
     return ESP_OK;
 }
 
-static esp_err_t queue_send(char* data_str)
-{
-
-    esp_err_t ret = httpd_queue_work(server, send_data_to_all, data_str);
-    return ret;
-}
 
 // The asynchronous response
-static void send_data_to_all(char* data_string)
+void send_data_to_all(char* data_string)
 {
 
         size_t fds = EXAMPLE_MAX_STA_CONN;
@@ -318,6 +308,13 @@ static void send_data_to_all(char* data_string)
             }
         }   
 
+}
+
+esp_err_t queue_send(char* data_str)
+{
+
+    esp_err_t ret = httpd_queue_work(server, send_data_to_all, data_str);
+    return ret;
 }
 
 void wifi_server_init()
