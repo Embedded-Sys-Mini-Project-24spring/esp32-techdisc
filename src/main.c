@@ -2,6 +2,7 @@
 #include "mpu-driver/mpu6050_driver.h"
 #include "freertos/FreeRTOS.h"
 #include "filter/smoothing_filter.h"
+#include "wifi-ws-server/wifi_ap_webserver.h"
 #include "driver/gpio.h"
 
 void doubleToAscii( double* data, uint8_t size );
@@ -22,6 +23,7 @@ void app_main(void)
         error = gpio_set_level(GPIO_NUM_8, 0);
         if(error == ESP_OK)
         {
+            wifi_server_init();
             mpu6050_init();
 
             while(1)
