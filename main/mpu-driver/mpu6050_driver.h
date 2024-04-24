@@ -420,6 +420,7 @@ typedef struct measurement_out_tag
     gyro_out_t gyro_out;
 }measurement_out_t;
 
+esp_err_t i2c_init();
 
 /**
 * @brief 初始化 mpu6050

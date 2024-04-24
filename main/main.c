@@ -38,6 +38,7 @@ void app_main(void)
         if(error == ESP_OK)
         {
             wifi_server_init();
+            i2c_init();
             mpu6050_init();
             
             // Should configure the timer to expire every 150ms

@@ -132,11 +132,7 @@ void reset()
     dataLock = false;
 }
 
-/**
-* @brief Initialize the mpu6050 and obtain starting offset and configuration values
-*/
-esp_err_t mpu6050_init()
-{
+esp_err_t i2c_init() {
     esp_err_t esp_err;
     i2c_config_t conf = {
         .mode = I2C_MODE_MASTER,
@@ -156,7 +152,16 @@ esp_err_t mpu6050_init()
     // Set up the reset commad for the IMU
     uint8_t reset_command[1][2] = {{MPU6050_RA_PWR_MGMT_1, 0x80}};
     esp_err = i2c_master_write_slave(MPU6050_I2C_PORT_NUM, reset_command, 2);
+    return esp_err;
+}
 
+/**
+* @brief Initialize the mpu6050 and obtain starting offset and configuration values
+*/
+esp_err_t mpu6050_init()
+{
+
+    esp_err_t esp_err = ESP_OK;
     // The datasheet says to wait until the reset register is cleared. But just to make it easy
     // I just used a delay to give some time before moving on
     vTaskDelay(200 / portTICK_PERIOD_MS);
