@@ -58,3 +58,5 @@ sdkconfig
 components/
 .vscode/
 sdkconfig.old
+dependencies.lock
+sdkconfig.esp32-s2-saola-1.old

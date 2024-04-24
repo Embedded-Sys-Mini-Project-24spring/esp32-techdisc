@@ -3,6 +3,7 @@
 #include "filter/smoothing_filter.h"
 #include "semaphore.h"
 #include "math.h"
+#include "sys/types.h"
 #include <stdio.h>
 
 #undef DEBUG // use undef to remove print statements
@@ -56,6 +57,7 @@ double gyro_x_output;
 double gyro_y_output;
 double gyro_z_output;
 double temp_data_output;
+uint count = 0;
 
 double rpm = 0;
 
@@ -66,7 +68,7 @@ double currentAngleXAccel = 0;
 double finalAngleX = 0;
 double finalAngleY = 0;
 
-bool dataLock = false;
+volatile bool dataLock = false;
 
 void timerCallbackRawDataGathering(void* arg);
 
@@ -330,13 +332,18 @@ bool mpu6050_get_value_string(char* data, uint16_t size)
 
     snprintf( data, 
               size,
-              "Accel x: %lf, Accel y: %lf, Accel z: %lf, Angle x: %lf, Angle y: %lf, rpm: %lf\n",
+              "accel_xout:%lf\t;accel_yout:%lf\t;accel_zout:%lf\t;gyro_xout:%lf\t;gyro_yout:%lf\t;gyro_zout:%lf\t;temp:%lf\t;cnt:%d\t;angle_x:%lf\t;angle_y:%lf\t;rpm:%lf\n",
               accel_x_output,
               accel_y_output,
               accel_z_output,
+              gyro_x_output,
+              gyro_y_output,
+              gyro_z_output,
+              temp_data_output,
+              count++,
               finalAngleX,
               finalAngleY,
-              rpm );
+              rpm);
 
     dataLock = false;
     retStatus = true;
@@ -456,8 +463,8 @@ void timerCallbackRawDataGathering(void* arg)
         }
         
         // Calculate the angle based on the accel data
-        currentAngleYAccel = atan(accel_x_output/sqrt(pow(accel_y_output,2)+pow(accel_z_output,2)))*(180/3.141592653589793238462643383);
-        currentAngleXAccel = atan(accel_y_output/sqrt(pow(accel_x_output,2)+pow(accel_z_output,2)))*(180/3.141592653589793238462643383);
+        currentAngleYAccel = atan(accel_x_output/sqrt(pow(accel_y_output,2)+pow(accel_z_output,2)))*(180/M_PI);
+        currentAngleXAccel = atan(accel_y_output/sqrt(pow(accel_x_output,2)+pow(accel_z_output,2)))*(180/M_PI);
 
         // Reset the integration so that we don't keep accumulating error
         if(currentAngleXAccel > -.01 && currentAngleXAccel < .01)

@@ -6,8 +6,8 @@
 #include "driver/gpio.h"
 #include "esp_timer.h"
 
-static uint16_t dataStringSize = 256;
-char dataString[256];
+#define dataStringSize 512
+char dataString[dataStringSize];
 
 // Handle for the timer that is used to send data to the client app
 esp_timer_handle_t clientAppSenderTimerHandle;
@@ -55,7 +55,7 @@ void app_main(void)
 
 void timerCallbackAppDataGathering(void* arg)
 {
-    (void)mpu6050_get_value_string( dataString ,dataStringSize );
-
+    (void)mpu6050_get_value_string( dataString , dataStringSize);
+    printf("%s", dataString);
     (void)queue_send(dataString);
 }
