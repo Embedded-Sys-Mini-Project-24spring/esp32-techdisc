@@ -52,4 +52,4 @@ esp_err_t queue_send(char* data_str);
 
 static void send_data_to_all();
 
-void wifi_server_init();
+void wifi_server_init(void (*cmd_hd)(unsigned char*));

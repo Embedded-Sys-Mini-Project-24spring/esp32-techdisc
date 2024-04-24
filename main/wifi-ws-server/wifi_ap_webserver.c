@@ -20,6 +20,7 @@
 #define EXAMPLE_ESP_WIFI_PASS      "mypassword" //CONFIG_ESP_WIFI_PASSWORD
 #define EXAMPLE_MAX_STA_CONN        5 //CONFIG_ESP_MAX_STA_CONN
 
+void (*cmd_handler)(unsigned char*) = 0; 
 
 /* A simple example that demonstrates how to create GET and POST
  * handlers for the web server.
@@ -180,6 +181,7 @@ static esp_err_t echo_handler(httpd_req_t *req)
             free(buf);
             return ret;
         }
+        cmd_handler(ws_pkt.payload);
         ESP_LOGI(TAG, "Got packet with message: %s", ws_pkt.payload);
     }
     // send back message --> change to print
@@ -304,8 +306,9 @@ esp_err_t wifi_init_softap(void)
 }
 
 
-void wifi_server_init()
+void wifi_server_init(void (*cmd_hd)(unsigned char*))
 {
+    cmd_handler = cmd_hd;
     ESP_LOGI(TAG, "NVS init");
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_netif_init());

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "mpu-driver/mpu6050_driver.h"
 #include "freertos/FreeRTOS.h"
 #include "filter/smoothing_filter.h"
@@ -13,6 +14,16 @@ char dataString[dataStringSize];
 esp_timer_handle_t clientAppSenderTimerHandle;
 
 void timerCallbackAppDataGathering(void* arg);
+
+volatile int ready = 0;
+
+void cmd_handler_real(unsigned char* cmd) {
+    if (strcmp((char*) cmd, "cali") == 0) {
+       ready = 1;
+    }
+    printf("%s\n", cmd);
+}
+
 
 void app_main(void)
 {
@@ -37,10 +48,14 @@ void app_main(void)
         error = gpio_set_level(GPIO_NUM_8, 0);
         if(error == ESP_OK)
         {
-            wifi_server_init();
+            wifi_server_init(cmd_handler_real);
             i2c_init();
-            mpu6050_init();
-            
+            while (!ready) {
+                queue_send("Waiting for cmd");
+                vTaskDelay(1000 / portTICK_PERIOD_MS);
+            } 
+
+            mpu6050_init(); 
             // Should configure the timer to expire every 150ms
             esp_timer_start_periodic( clientAppSenderTimerHandle, 150000 );
 
@@ -56,7 +71,8 @@ void app_main(void)
 
 void timerCallbackAppDataGathering(void* arg)
 {
+
     (void)mpu6050_get_value_string( dataString , dataStringSize);
-    printf("%s", dataString);
+    // printf("%s", dataString);
     (void)queue_send(dataString);
 }

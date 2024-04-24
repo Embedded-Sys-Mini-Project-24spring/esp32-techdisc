@@ -5,6 +5,7 @@
 #include "math.h"
 #include "sys/types.h"
 #include <stdio.h>
+#include "wifi-ws-server/wifi_ap_webserver.h"
 
 #undef DEBUG // use undef to remove print statements
 
@@ -182,7 +183,7 @@ esp_err_t mpu6050_init()
     int64_t gyro_y_offset_temp = 0;
     int64_t gyro_z_offset_temp = 0;
 
-    printf("Please hold IMU still while calibrating gyros...\n");
+    queue_send("Please hold IMU still while calibrating gyros...\n");
 
     // Delay to give user time to orient imu and be steady
     vTaskDelay(3000 / portTICK_PERIOD_MS);
@@ -207,7 +208,7 @@ esp_err_t mpu6050_init()
     gyro_z_offset = (int16_t)(gyro_z_offset_temp/OFFSET_LOOP);
 
     // Calibrate the z axis for the accelerometer
-    printf("Please place z-axis of IMU upwards and hold steady...\n");
+    queue_send("Please place z-axis of IMU upwards and hold steady...\n");
 
     // Delay to give user time to orient imu and be steady
     vTaskDelay(3000 / portTICK_PERIOD_MS);
@@ -225,7 +226,7 @@ esp_err_t mpu6050_init()
     }
     temp_accel_z_data_upwards = temp_accel_z_data_upwards/OFFSET_LOOP;
 
-    printf("Please place z-axis of IMU downwards and hold steady...\n");
+    queue_send("Please place z-axis of IMU downwards and hold steady...\n");
 
     // Delay to give user time to orient imu and be steady
     vTaskDelay(5000 / portTICK_PERIOD_MS);
@@ -254,7 +255,7 @@ esp_err_t mpu6050_init()
     // Get rid of any negative sign
     accel_z_scale_factor = (accel_z_scale_factor < 0) ? (-1*accel_z_scale_factor) : accel_z_scale_factor;
 
-    printf("Return to upright position.\n");
+    queue_send("Return to upright position.\n");
 
     // Delay to give user time to orient imu and be steady
     vTaskDelay(5000 / portTICK_PERIOD_MS);
