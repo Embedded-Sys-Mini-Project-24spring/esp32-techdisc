@@ -15,6 +15,8 @@ This project allows ultimate frisbee players or disc golfers to improve their th
 - MPU6050 
 - MicroUSB cable and female-to-female jumper wires
 
+![techdisc (1)](https://github.com/Embedded-Sys-Mini-Project-24spring/esp32-techdisc/assets/67492291/6d082b46-6f90-41d1-a87c-8cbe24ae6b3b)
+
 ### Software
 
 You can use [PlatformIO](https://platformio.org/) or [ESP-IDF](https://idf.espressif.com/).
