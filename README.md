@@ -5,6 +5,7 @@ Noah Mecham
 Carly Atwell
 
 ## Purpose
+This project allows ultimate frisbee players or disc golfers to improve their throws by tracking the rotational speed and angle of the disc as they throw it. The hardware attaches to the bottom of a disc and streams data about the disc's flight over wifi to a web app where we can view the information in real time. Rotational speed and the angle of the disc are impprtant factors in increasing the distance or hang time of a throw, and also important in controlling a disc in the wind, so this tool provides valuable data to anyone looking to improve their disc chucking abilities. 
 
 ## Setup 
 
@@ -15,6 +16,8 @@ The MPU6050 is attached via I2C to the ESP32-S2-SAOLA-1 dev kit. The MPU6050 pro
 - ESP32-S2-Saola-1
 - MPU6050 
 - MicroUSB cable and female-to-female jumper wires
+
+![techdisc (1)](https://github.com/Embedded-Sys-Mini-Project-24spring/esp32-techdisc/assets/67492291/6d082b46-6f90-41d1-a87c-8cbe24ae6b3b)
 
 ### Software
 
