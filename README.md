@@ -8,6 +8,8 @@ Carly Atwell
 
 ## Setup 
 
+The MPU6050 is attached via I2C to the ESP32-S2-SAOLA-1 dev kit. The MPU6050 provides acclerometer & gyroscope measurements that are used to calculate the RPM of the disk as well as the tilt angle of the disk. A wiring diagram is provided below.
+
 ### Hardware
 
 - ESP32-S2-Saola-1
@@ -28,6 +30,47 @@ If you are using VScode, you can install either of them as a plugin.
 The client side app [tech-disc-app](https://github.com/Embedded-Sys-Mini-Project-24spring/tech-disc-app) is an Typescript application running in the browser. It is deployed on [Github pages](https://embedded-sys-mini-project-24spring.github.io/tech-disc-app/) and openly accessible. 
 
 ## Data processing
+
+The data from the MPU6050 is read and processed at an interval of 100ms. The following data is what is read out of the MPU6050:
+
+- Accelerometer data
+- Gyroscope data
+- Temperature data
+
+Once the data is read, it is passed through a 5 sample Savitzky-Golay smoothing filter. The coefficients used for this filter are as follows:
+
+$$(1/35)(-3*y_{n-2}+12*y_{n-1}+17*y_{n}+12*y_{n+1}-3*y_{n+2})$$
+
+After the data has been passed through the smoothing filter we can calculate the RPM and tilt angle. For the RPM calculation we use the degrees/second data returned from the gyroscope in the z-axis. The following equation is used to calculate the RPM from the gyro data:
+
+$$RPM = \omega/6$$
+
+Where $\omega$ is the angular velocity returned by the gyroscope.
+
+The angular tilt is calculated in the following manor. First the angle is calculated based of the gyroscope data. Since the gyroscope returns the angular velocity, we can integrate to get the position or current angle.
+
+$$currentAngleGryo = currentAngleGyro + \omega*\Delta t$$
+
+With $\Delta t$ representing the time between measurments.
+
+This formula is used for both the x & y axis data.
+
+Next the accelerometer data can be used to calculate the tilt angle. The following equations were used for those calculations:
+
+$$currentAngleXAcel = arctan(\frac{Accel_x}{\sqrt{Accel_y^2 + Accel_z^2}})*(180/\pi)$$
+
+$$currentAngleXAcel = arctan(\frac{Accel_y}{\sqrt{Accel_x^2 + Accel_z^2}})*(180/\pi)$$
+
+The $180/\pi$ is required to convert from radians to degrees.
+
+Finally the angle calculated from the gyro data is combined with the angle calculated from the accelerometer data. This combination is done using a complementary filter. This filter is implemented using the following algorithm:
+
+$$FinalAngle = \alpha * currnetAngleXGyro + (1-\alpha)*currentAngleXAcel$$
+
+The $\alpha$ is the gain. For this implementation the gain was selected as .85. Meaning we bias towards the gyro data.
+
+The final values are all saved in variables that are returned upon request to be sent or used by a user application.
+
 
 ## Communication
 
