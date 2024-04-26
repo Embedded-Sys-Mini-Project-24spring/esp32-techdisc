@@ -5,6 +5,7 @@ Noah Mecham
 Carly Atwell
 
 ## Purpose
+This project allows ultimate frisbee players or disc golfers to improve their throws by tracking the rotational speed and angle of the disc as they throw it. The hardware attaches to the bottom of a disc and streams data about the disc's flight over wifi to a web app where we can view the information in real time. Rotational speed and the angle of the disc are impprtant factors in increasing the distance or hang time of a throw, and also important in controlling a disc in the wind, so this tool provides valuable data to anyone looking to improve their disc chucking abilities. 
 
 ## Setup 
 
