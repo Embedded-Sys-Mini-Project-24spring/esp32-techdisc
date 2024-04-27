@@ -30,6 +30,9 @@ If you are using VScode, you can install either of them as a plugin.
 - [ESP32-S2 Getting Started Guide](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s2/get-started/index.html)
 - [PlatformIO ESP32 Guide](https://docs.platformio.org/en/stable/core/quickstart.html#process-project)
 
+A block diagram detailing the system is provided below:
+![techdisc (3)](pictures/Disc%20Tracker%20Project%20Proposal.jpg)
+
 ## Frontend 
 
 The client side app [tech-disc-app](https://github.com/Embedded-Sys-Mini-Project-24spring/tech-disc-app) is an Typescript application running in the browser. It is deployed on [Github pages](https://embedded-sys-mini-project-24spring.github.io/tech-disc-app/) and openly accessible. 
@@ -48,7 +51,7 @@ $$(1/35)(-3*y_{n-2}+12*y_{n-1}+17*y_{n}+12*y_{n+1}-3*y_{n+2})$$
 
 The following plots show the effects of the smoothing filter on obtained gyro data:
 
-![techdisc (2)](https://github.com/Embedded-Sys-Mini-Project-24spring/esp32-techdisc/pictures/smoothing-filter-plot.png)
+![techdisc (2)](pictures/smoothing-filter-plot.png)
 
 After the data has been passed through the smoothing filter we can calculate the RPM and tilt angle. For the RPM calculation we use the degrees/second data returned from the gyroscope in the z-axis. The following equation is used to calculate the RPM from the gyro data:
 
@@ -82,6 +85,8 @@ The final values are all saved in variables that are returned upon request to be
 
 
 ## Communication
+
+Following the data processing, the data is sent over a websocket to the connected device. The device is connected over the Wifi access point and is running the provided front end application that we have developed. Once connected the user only needs to send the command "cali" using the front end. At this point communiction will begin flowing and the user will see data being ploted. The communication on the ESP is triggered by a timer that expires every 150ms. Providing a data update rate of 6.66 Hz.
 
 Reference:
 
