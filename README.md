@@ -86,6 +86,12 @@ The final values are all saved in variables that are returned upon request to be
 
 ## Communication
 
+There are two ways to communicate with the ESP32 devboard: serial(in the lastest version of code, for unknown reason webserial stops working) and WiFi. 
+
+For the ease of debugging, we send data as text strings. On the client side frontend, we use a regular expression to extract data from the received string.
+
+For wireless communication over WiFi, the client device need to connect to the WiFi AP hosted by ESP32. At the same time, ESP32 also hosts a web server to handle WebSocket requests.
+
 Following the data processing, the data is sent over a websocket to the connected device. The device is connected over the Wifi access point and is running the provided front end application that we have developed. Once connected the user only needs to send the command "cali" using the front end. At this point communiction will begin flowing and the user will see data being ploted. The communication on the ESP is triggered by a timer that expires every 150ms. Providing a data update rate of 6.66 Hz.
 
 Reference:
