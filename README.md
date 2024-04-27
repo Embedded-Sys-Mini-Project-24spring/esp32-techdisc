@@ -36,7 +36,7 @@ The client side app [tech-disc-app](https://github.com/Embedded-Sys-Mini-Project
 
 ## Data processing
 
-The data from the MPU6050 is read and processed at an interval of 100ms. This timing is achieved with a timer. The following data is what is read out of the MPU6050:
+The data from the MPU6050 is read via I2C and processed at an interval of 100ms. This timing is achieved with a timer. The following data is what is read out of the MPU6050:
 
 - Accelerometer data
 - Gyroscope data
@@ -45,6 +45,10 @@ The data from the MPU6050 is read and processed at an interval of 100ms. This ti
 Once the data is read, it is passed through a 5 sample Savitzky-Golay smoothing filter. The coefficients used for this filter are as follows:
 
 $$(1/35)(-3*y_{n-2}+12*y_{n-1}+17*y_{n}+12*y_{n+1}-3*y_{n+2})$$
+
+The following plots show the effects of the smoothing filter on obtained gyro data:
+
+![techdisc (2)](https://github.com/Embedded-Sys-Mini-Project-24spring/esp32-techdisc/pictures/smoothing-filter-plot.png)
 
 After the data has been passed through the smoothing filter we can calculate the RPM and tilt angle. For the RPM calculation we use the degrees/second data returned from the gyroscope in the z-axis. The following equation is used to calculate the RPM from the gyro data:
 
@@ -56,7 +60,7 @@ The angular tilt is calculated in the following manor. First the angle is calcul
 
 $$currentAngleGryo = currentAngleGyro + \omega*\Delta t$$
 
-With $\Delta t$ representing the time between measurments.
+With $\Delta t$ representing the time between measurments. Which in this application is 100ms.
 
 This formula is used for both the x & y axis data.
 
