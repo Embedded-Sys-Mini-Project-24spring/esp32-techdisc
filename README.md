@@ -11,6 +11,8 @@ This project allows ultimate frisbee players or disc golfers to improve their th
 
 The MPU6050 is attached via I2C to the ESP32-S2-SAOLA-1 dev kit. The MPU6050 provides acclerometer & gyroscope measurements that are used to calculate the RPM of the disk as well as the tilt angle of the disk. A wiring diagram is provided below.
 
+NOTE: GPIO pin 8 was configured to set the addresss for the connected I2C device.
+
 ### Hardware
 
 - ESP32-S2-Saola-1
@@ -34,7 +36,7 @@ The client side app [tech-disc-app](https://github.com/Embedded-Sys-Mini-Project
 
 ## Data processing
 
-The data from the MPU6050 is read and processed at an interval of 100ms. The following data is what is read out of the MPU6050:
+The data from the MPU6050 is read and processed at an interval of 100ms. This timing is achieved with a timer. The following data is what is read out of the MPU6050:
 
 - Accelerometer data
 - Gyroscope data
